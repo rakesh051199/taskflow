@@ -1,0 +1,437 @@
+openapi: 3.0.0
+info:
+  title: Task Management API
+  description: API for managing tasks within projects
+  version: 1.0.0
+  contact:
+    name: TaskFlow API Support
+
+servers:
+  - url: /api
+    description: API Base URL
+
+tags:
+  - name: tasks
+    description: Task management operations
+
+paths:
+  /projects/{projectId}/tasks:
+    get:
+      summary: List tasks for a project
+      description: Retrieve a paginated list of tasks for a project with optional filtering by status and assigned user
+      operationId: listTasks
+      tags:
+        - tasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project identifier
+          schema:
+            type: string
+            format: objectid
+        - name: status
+          in: query
+          required: false
+          description: Filter tasks by status
+          schema:
+            type: string
+            enum: [pending, in-progress, completed, cancelled]
+        - name: assignedTo
+          in: query
+          required: false
+          description: Filter tasks by assigned user ID
+          schema:
+            type: string
+            format: objectid
+        - name: page
+          in: query
+          required: false
+          description: Page number (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of tasks per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Successfully retrieved tasks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Task'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      summary: Create a new task
+      description: Create a new task within a project. Only project administrators can create tasks.
+      operationId: createTask
+      tags:
+        - tasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project identifier
+          schema:
+            type: string
+            format: objectid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /projects/{projectId}/tasks/{taskId}:
+    get:
+      summary: Get task details
+      description: Retrieve detailed information about a specific task
+      operationId: getTask
+      tags:
+        - tasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project identifier
+          schema:
+            type: string
+            format: objectid
+        - name: taskId
+          in: path
+          required: true
+          description: Task identifier
+          schema:
+            type: string
+            format: objectid
+      responses:
+        '200':
+          description: Successfully retrieved task
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    put:
+      summary: Update a task
+      description: Update task details. Project administrators can update all fields. Assigned users can only update status.
+      operationId: updateTask
+      tags:
+        - tasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project identifier
+          schema:
+            type: string
+            format: objectid
+        - name: taskId
+          in: path
+          required: true
+          description: Task identifier
+          schema:
+            type: string
+            format: objectid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Task'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    delete:
+      summary: Delete a task
+      description: Delete a task from a project. Only project administrators can delete tasks.
+      operationId: deleteTask
+      tags:
+        - tasks
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: Project identifier
+          schema:
+            type: string
+            format: objectid
+        - name: taskId
+          in: path
+          required: true
+          description: Task identifier
+          schema:
+            type: string
+            format: objectid
+      responses:
+        '204':
+          description: Task deleted successfully
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+components:
+  schemas:
+    Task:
+      type: object
+      required:
+        - _id
+        - title
+        - status
+        - projectId
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        _id:
+          type: string
+          format: objectid
+          description: Task identifier
+        title:
+          type: string
+          maxLength: 200
+          description: Task title
+        description:
+          type: string
+          maxLength: 5000
+          description: Task description
+        status:
+          type: string
+          enum: [pending, in-progress, completed, cancelled]
+          description: Task status
+        projectId:
+          type: string
+          format: objectid
+          description: Project identifier
+        assignedTo:
+          type: string
+          format: objectid
+          nullable: true
+          description: Assigned user identifier
+        createdBy:
+          type: string
+          format: objectid
+          description: User who created the task
+        createdAt:
+          type: string
+          format: date-time
+          description: Task creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Task last update timestamp
+
+    CreateTaskRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          description: Task title
+        description:
+          type: string
+          maxLength: 5000
+          description: Task description
+        status:
+          type: string
+          enum: [pending, in-progress, completed, cancelled]
+          default: pending
+          description: Task status
+        assignedTo:
+          type: string
+          format: objectid
+          nullable: true
+          description: Assigned user identifier (must be a project member)
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          description: Task title
+        description:
+          type: string
+          maxLength: 5000
+          description: Task description
+        status:
+          type: string
+          enum: [pending, in-progress, completed, cancelled]
+          description: Task status
+        assignedTo:
+          type: string
+          format: objectid
+          nullable: true
+          description: Assigned user identifier (must be a project member)
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Number of items per page
+        total:
+          type: integer
+          description: Total number of items
+        pages:
+          type: integer
+          description: Total number of pages
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - message
+          properties:
+            message:
+              type: string
+              description: Error message
+            code:
+              type: string
+              description: Error code
+            details:
+              type: object
+              description: Additional error details
+
+  responses:
+    BadRequest:
+      description: Bad request - validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: Validation error
+              code: VALIDATION_ERROR
+              details:
+                title: Title is required
+
+    Forbidden:
+      description: Forbidden - unauthorized access
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: You do not have permission to perform this action
+              code: FORBIDDEN
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: Task not found
+              code: NOT_FOUND
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              message: An unexpected error occurred
+              code: INTERNAL_SERVER_ERROR
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication
+
