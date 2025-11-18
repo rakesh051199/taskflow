@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useMemo, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { StatusBadge } from '../components/StatusBadge';
 import { PriorityBadge } from '../components/PriorityBadge';
@@ -9,12 +9,30 @@ import { toast } from 'sonner';
 export const TaskListPage: React.FC = () => {
   const { tasks, loading, error, projectId, fetchTasks } = useApp();
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'All'>('All');
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'All'>('All');
-  const [assignedToFilter, setAssignedToFilter] = useState('');
-  const [overdueOnly, setOverdueOnly] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get filters from URL or use defaults
+  const statusFilter = (searchParams.get('status') as TaskStatus | 'All') || 'All';
+  const priorityFilter = (searchParams.get('priority') as TaskPriority | 'All') || 'All';
+  const assignedToFilter = searchParams.get('assignedTo') || '';
+  const overdueOnly = searchParams.get('overdue') === 'true';
+  const currentPage = parseInt(searchParams.get('page') || '1', 10);
   const itemsPerPage = 10;
+
+  // Helper to update URL params
+  const updateFilters = (updates: Record<string, string | number | boolean>) => {
+    const newParams = new URLSearchParams(searchParams);
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === '' || value === 'All' || value === false || value === 1) {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, value.toString());
+      }
+    });
+    
+    setSearchParams(newParams);
+  };
 
   useEffect(() => {
     if (projectId && tasks.length === 0 && !loading) {
@@ -147,10 +165,10 @@ export const TaskListPage: React.FC = () => {
       <div className="flex flex-wrap gap-3 mb-6 p-4 bg-white rounded-xl border border-[#e5e7eb]">
         <select
           value={statusFilter}
-          onChange={e => {
-            setStatusFilter(e.target.value as TaskStatus | 'All');
-            setCurrentPage(1);
-          }}
+          onChange={e => updateFilters({ 
+            status: e.target.value, 
+            page: 1 
+          })}
           className="px-3 py-2 border border-[#d1d5db] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#111827]"
         >
           <option value="All">All statuses</option>
@@ -162,10 +180,10 @@ export const TaskListPage: React.FC = () => {
 
         <select
           value={priorityFilter}
-          onChange={e => {
-            setPriorityFilter(e.target.value as TaskPriority | 'All');
-            setCurrentPage(1);
-          }}
+          onChange={e => updateFilters({ 
+            priority: e.target.value, 
+            page: 1 
+          })}
           className="px-3 py-2 border border-[#d1d5db] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#111827]"
         >
           <option value="All">All priorities</option>
@@ -179,10 +197,10 @@ export const TaskListPage: React.FC = () => {
           type="text"
           placeholder="Filter assigned user ID"
           value={assignedToFilter}
-          onChange={e => {
-            setAssignedToFilter(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={e => updateFilters({ 
+            assignedTo: e.target.value, 
+            page: 1 
+          })}
           className="px-3 py-2 border border-[#d1d5db] rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#111827]"
         />
 
@@ -190,10 +208,10 @@ export const TaskListPage: React.FC = () => {
           <input
             type="checkbox"
             checked={overdueOnly}
-            onChange={e => {
-              setOverdueOnly(e.target.checked);
-              setCurrentPage(1);
-            }}
+            onChange={e => updateFilters({ 
+              overdue: e.target.checked, 
+              page: 1 
+            })}
             className="w-4 h-4"
           />
           <span>Overdue only</span>
@@ -252,7 +270,7 @@ export const TaskListPage: React.FC = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-8">
           <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            onClick={() => updateFilters({ page: Math.max(1, currentPage - 1) })}
             disabled={currentPage === 1}
             className="px-4 py-2 border border-[#d1d5db] rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -262,7 +280,7 @@ export const TaskListPage: React.FC = () => {
             Page {currentPage} / {totalPages}
           </span>
           <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            onClick={() => updateFilters({ page: Math.min(totalPages, currentPage + 1) })}
             disabled={currentPage === totalPages}
             className="px-4 py-2 border border-[#d1d5db] rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
